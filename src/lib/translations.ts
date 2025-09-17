@@ -60,6 +60,16 @@ export const translations = {
         saving: 'Guardando...',
         success: '✅ Entrada guardada exitosamente',
         error: '❌ Error al guardar:'
+      },
+
+      welcome: {
+        greeting: 'Hola',
+        intro: '¿Listo para tu entrada de hoy?',
+        start: 'Comenzar'
+      },
+      thanks: {
+        message: '¡Gracias por tu entrada de hoy! 🌟',
+        back: 'Volver al inicio'
       }
     },
 
@@ -147,6 +157,16 @@ export const translations = {
         saving: 'Saving...',
         success: '✅ Entry saved successfully',
         error: '❌ Error saving:'
+      },
+
+      welcome: {
+        greeting: 'Hi',
+        intro: 'Ready for today\'s entry?',
+        start: 'Start'
+      },
+      thanks: {
+        message: 'Thanks for today\'s entry! 🌟',
+        back: 'Back to start'
       }
     },
 
