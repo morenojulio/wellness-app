@@ -1,14 +1,12 @@
 <script lang="ts">
     import { darkMode } from "$lib/stores/darkMode";
     import { saveJournalEntry } from "$lib/stores/journal";
+    import { language } from "$lib/stores/language";
+    import { t } from "$lib/utils/i18n";
+    import { formatDate } from "$lib/utils/i18n";
     import { onMount } from "svelte";
 
-    let currentDate = new Date().toLocaleDateString("es-ES", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    });
+    $: currentDate = formatDate(new Date(), $language);
 
     // Energy levels for each time period
     let morningEnergy = 0;
@@ -55,9 +53,9 @@
         const result = await saveJournalEntry(entry);
 
         if (result.success) {
-            saveMessage = "✅ Entrada guardada exitosamente";
+            saveMessage = $t('journal.save.success');
         } else {
-            saveMessage = "❌ Error al guardar: " + result.error;
+            saveMessage = $t('journal.save.error') + " " + result.error;
         }
 
         isSaving = false;
@@ -84,7 +82,7 @@
             <h1
                 class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-gray-100 text-center border-b-2 border-blue-500 pb-3"
             >
-                🌱 Diario Diario para Conocerte Mejor
+                {$t('journal.title')}
             </h1>
         </div>
 
@@ -92,7 +90,7 @@
         <div
             class="text-center text-lg text-gray-600 dark:text-gray-300 mb-8 font-medium"
         >
-            <strong>Fecha:</strong>
+            <strong>{$t('journal.date')}</strong>
             {currentDate}
         </div>
 
@@ -101,19 +99,18 @@
             class="border-2 border-gray-200 dark:border-gray-600 border-l-orange-500 border-l-8 rounded-lg p-5 mb-8"
         >
             <div class="text-xl font-bold text-orange-500 mb-4">
-                🌅 Mañana (2 minutos)
+                {$t('journal.morning.title')}
             </div>
 
             <!-- Morning Energy Question -->
             <div class="mb-6">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Cómo está mi energía ahorita?
+                    {$t('journal.morning.energyQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Encierra un número del 1 (súper cansado) al 10 (lleno de
-                    energía)
+                    {$t('journal.morning.energyScale')}
                 </div>
 
                 <!-- Energy Scale -->
@@ -121,8 +118,8 @@
                     <div
                         class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                        <span>Poca Energía</span>
-                        <span>Mucha Energía</span>
+                        <span>{$t('journal.morning.lowEnergy')}</span>
+                        <span>{$t('journal.morning.highEnergy')}</span>
                     </div>
                     <div class="flex justify-between gap-1 sm:gap-2">
                         {#each Array(10) as _, i}
@@ -143,18 +140,17 @@
             <!-- Morning Focus Question -->
             <div class="mb-4">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Qué es una cosa sobre mí mismo que quiero notar hoy?
+                    {$t('journal.morning.focusQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Solo una cosa simple - como "ver cuándo sonrío natural" o
-                    "notar si estoy forzando pláticas"
+                    {$t('journal.morning.focusHint')}
                 </div>
                 <textarea
                     class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     bind:value={morningFocus}
-                    placeholder="Escribe aquí..."
+                    placeholder={$t('journal.morning.placeholder')}
                 ></textarea>
             </div>
         </div>
@@ -164,19 +160,18 @@
             class="border-2 border-gray-200 dark:border-gray-600 border-l-red-500 border-l-8 rounded-lg p-5 mb-8"
         >
             <div class="text-xl font-bold text-red-500 mb-4">
-                ☀️ Tarde (2 minutos)
+                {$t('journal.afternoon.title')}
             </div>
 
             <!-- Afternoon Energy Question -->
             <div class="mb-6">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Cómo está mi energía ahorita?
+                    {$t('journal.afternoon.energyQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Encierra un número del 1 (súper cansado) al 10 (lleno de
-                    energía)
+                    {$t('journal.afternoon.energyScale')}
                 </div>
 
                 <!-- Energy Scale -->
@@ -184,8 +179,8 @@
                     <div
                         class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                        <span>Poca Energía</span>
-                        <span>Mucha Energía</span>
+                        <span>{$t('journal.afternoon.lowEnergy')}</span>
+                        <span>{$t('journal.afternoon.highEnergy')}</span>
                     </div>
                     <div class="flex justify-between gap-1 sm:gap-2">
                         {#each Array(10) as _, i}
@@ -207,18 +202,17 @@
             <!-- Afternoon Moment Question -->
             <div class="mb-4">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿En qué momento de hoy me he sentido más como yo mismo?
+                    {$t('journal.afternoon.momentQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Piensa en un momento, aunque sea pequeño, donde te sentiste
-                    natural y relajado
+                    {$t('journal.afternoon.momentHint')}
                 </div>
                 <textarea
                     class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     bind:value={afternoonMoment}
-                    placeholder="Escribe aquí..."
+                    placeholder={$t('journal.afternoon.placeholder')}
                 ></textarea>
             </div>
         </div>
@@ -228,19 +222,18 @@
             class="border-2 border-gray-200 dark:border-gray-600 border-l-purple-500 border-l-8 rounded-lg p-5 mb-8"
         >
             <div class="text-xl font-bold text-purple-500 mb-4">
-                🌙 Noche (5 minutos)
+                {$t('journal.evening.title')}
             </div>
 
             <!-- Evening Energy Question -->
             <div class="mb-6">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Cómo está mi energía ahorita?
+                    {$t('journal.evening.energyQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Encierra un número del 1 (súper cansado) al 10 (lleno de
-                    energía)
+                    {$t('journal.evening.energyScale')}
                 </div>
 
                 <!-- Energy Scale -->
@@ -248,8 +241,8 @@
                     <div
                         class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                        <span>Poca Energía</span>
-                        <span>Mucha Energía</span>
+                        <span>{$t('journal.evening.lowEnergy')}</span>
+                        <span>{$t('journal.evening.highEnergy')}</span>
                     </div>
                     <div class="flex justify-between gap-1 sm:gap-2">
                         {#each Array(10) as _, i}
@@ -270,73 +263,68 @@
             <!-- Evening Emotion Question -->
             <div class="mb-6">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Qué emoción sentí más fuerte hoy?
+                    {$t('journal.evening.emotionQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Solo ponle nombre - "frustrado," "curioso," "ansioso,"
-                    "emocionado," etc. No necesitas analizarlo
+                    {$t('journal.evening.emotionHint')}
                 </div>
                 <textarea
                     class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     bind:value={eveningEmotion}
-                    placeholder="Escribe aquí..."
+                    placeholder={$t('journal.evening.placeholder')}
                 ></textarea>
             </div>
 
             <!-- Evening Authentic Question -->
             <div class="mb-6">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Cuándo me sentí más como yo mismo hoy?
+                    {$t('journal.evening.authenticQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Describe cómo se sintió por dentro cuando estabas siendo
-                    genuinamente tú
+                    {$t('journal.evening.authenticHint')}
                 </div>
                 <textarea
                     class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     bind:value={eveningAuthentic}
-                    placeholder="Escribe aquí..."
+                    placeholder={$t('journal.evening.placeholder')}
                 ></textarea>
             </div>
 
             <!-- Evening Acting Question -->
             <div class="mb-6">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Cuándo sentí que estaba actuando o tratando de encajar?
+                    {$t('journal.evening.actingQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Describe cómo se sintió por dentro - ¿tenso, cuidadoso, como
-                    actuando?
+                    {$t('journal.evening.actingHint')}
                 </div>
                 <textarea
                     class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     bind:value={eveningActing}
-                    placeholder="Escribe aquí..."
+                    placeholder={$t('journal.evening.placeholder')}
                 ></textarea>
             </div>
 
             <!-- Evening Admiration Question -->
             <div class="mb-4">
                 <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                    ¿Admiré a alguien hoy? ¿Qué cualidad vi en esa persona que
-                    yo ya puedo tener?
+                    {$t('journal.evening.admirationQuestion')}
                 </div>
                 <div
                     class="text-gray-600 dark:text-gray-400 italic text-sm mb-3"
                 >
-                    Piensa: "¿Qué me gustó de esa persona, y cómo esa cualidad
-                    ya puede existir en mí?"
+                    {$t('journal.evening.admirationHint')}
                 </div>
                 <textarea
                     class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
                     bind:value={eveningAdmiration}
-                    placeholder="Escribe aquí..."
+                    placeholder={$t('journal.evening.placeholder')}
                 ></textarea>
             </div>
         </div>
@@ -349,18 +337,14 @@
                 class="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg shadow-md transition-all duration-200 disabled:cursor-not-allowed"
             >
                 {#if isSaving}
-                    Guardando...
+                    {$t('journal.save.saving')}
                 {:else}
-                    Guardar Entrada del Diario
+                    {$t('journal.save.button')}
                 {/if}
             </button>
 
             {#if saveMessage}
-                <div
-                    class="mt-3 text-sm font-medium {saveMessage.includes('✅')
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'}"
-                >
+                <div class="mt-3 text-sm font-medium {saveMessage.includes('✅') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
                     {saveMessage}
                 </div>
             {/if}

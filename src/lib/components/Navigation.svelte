@@ -1,7 +1,9 @@
 <script lang="ts">
-    import { page } from '$app/stores';
-    import BurgerMenu from './BurgerMenu.svelte';
-    import { darkMode, toggleDarkMode } from '$lib/stores/darkMode';
+    import { page } from "$app/stores";
+    import BurgerMenu from "./BurgerMenu.svelte";
+    import { darkMode, toggleDarkMode } from "$lib/stores/darkMode";
+    import { language } from "$lib/stores/language";
+    import { t } from "$lib/utils/i18n";
 
     let isMenuOpen = false;
 
@@ -16,13 +18,15 @@
     $: currentPath = $page.url.pathname;
 </script>
 
-<nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
+<nav
+    class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300"
+>
     <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             <!-- Logo/Title -->
             <div class="flex-shrink-0">
                 <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    🌱 Diario Wellness
+                    {$t("nav.title")}
                 </h1>
             </div>
 
@@ -31,25 +35,37 @@
                 <div class="ml-10 flex items-baseline space-x-4">
                     <a
                         href="/"
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath === '/'
+                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath ===
+                        '/'
                             ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
                     >
-                        Diario
+                        {$t("nav.journal")}
                     </a>
                     <a
                         href="/resultados"
-                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath === '/resultados'
+                        class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath ===
+                        '/resultados'
                             ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
                     >
-                        Resultados
+                        {$t("nav.results")}
                     </a>
                 </div>
             </div>
 
-            <!-- Dark Mode Toggle & Mobile Menu -->
+            <!-- Language Switcher, Dark Mode Toggle & Mobile Menu -->
             <div class="flex items-center space-x-3">
+                <!-- Language Switcher -->
+                <button
+                    on:click={() => language.toggle()}
+                    class="px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm font-medium"
+                    aria-label="Toggle language"
+                >
+                    {$language === "es" ? "🇺🇸 EN" : "🇪🇸 ES"}
+                </button>
+
+                <!-- Dark Mode Toggle -->
                 <button
                     on:click={toggleDarkMode}
                     class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200"
@@ -64,7 +80,10 @@
 
                 <!-- Mobile menu button -->
                 <div class="md:hidden">
-                    <BurgerMenu bind:isOpen={isMenuOpen} on:toggle={handleMenuToggle} />
+                    <BurgerMenu
+                        bind:isOpen={isMenuOpen}
+                        on:toggle={handleMenuToggle}
+                    />
                 </div>
             </div>
         </div>
@@ -77,20 +96,22 @@
                 <a
                     href="/"
                     on:click={closeMenu}
-                    class="block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {currentPath === '/'
+                    class="block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {currentPath ===
+                    '/'
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
                 >
-                    Diario
+                    {$t("nav.journal")}
                 </a>
                 <a
                     href="/resultados"
                     on:click={closeMenu}
-                    class="block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {currentPath === '/resultados'
+                    class="block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {currentPath ===
+                    '/resultados'
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
                 >
-                    Resultados
+                    {$t("nav.results")}
                 </a>
             </div>
         </div>
