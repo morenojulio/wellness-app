@@ -1,5 +1,6 @@
 <script lang="ts">
     import { darkMode, toggleDarkMode } from "$lib/stores/darkMode";
+    import { saveJournalEntry } from "$lib/stores/journal";
     import { onMount } from "svelte";
 
     let currentDate = new Date().toLocaleDateString("es-ES", {
@@ -22,6 +23,9 @@
     let eveningActing = "";
     let eveningAdmiration = "";
 
+    let isSaving = false;
+    let saveMessage = "";
+
     function selectEnergy(
         period: "morning" | "afternoon" | "evening",
         value: number,
@@ -29,6 +33,38 @@
         if (period === "morning") morningEnergy = value;
         if (period === "afternoon") afternoonEnergy = value;
         if (period === "evening") eveningEnergy = value;
+    }
+
+    async function handleSave() {
+        isSaving = true;
+        saveMessage = "";
+
+        const entry = {
+            date: currentDate,
+            morningEnergy,
+            afternoonEnergy,
+            eveningEnergy,
+            morningFocus,
+            afternoonMoment,
+            eveningEmotion,
+            eveningAuthentic,
+            eveningActing,
+            eveningAdmiration,
+        };
+
+        const result = await saveJournalEntry(entry);
+
+        if (result.success) {
+            saveMessage = "✅ Entrada guardada exitosamente";
+        } else {
+            saveMessage = "❌ Error al guardar: " + result.error;
+        }
+
+        isSaving = false;
+
+        setTimeout(() => {
+            saveMessage = "";
+        }, 3000);
     }
 
     // Initialize dark mode on mount
@@ -316,6 +352,31 @@
                     placeholder="Escribe aquí..."
                 ></textarea>
             </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-8 text-center">
+            <button
+                on:click={handleSave}
+                disabled={isSaving}
+                class="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg shadow-md transition-all duration-200 disabled:cursor-not-allowed"
+            >
+                {#if isSaving}
+                    Guardando...
+                {:else}
+                    Guardar Entrada del Diario
+                {/if}
+            </button>
+
+            {#if saveMessage}
+                <div
+                    class="mt-3 text-sm font-medium {saveMessage.includes('✅')
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'}"
+                >
+                    {saveMessage}
+                </div>
+            {/if}
         </div>
     </div>
 </div>
