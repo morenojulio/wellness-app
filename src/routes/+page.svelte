@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { darkMode, toggleDarkMode } from "$lib/stores/darkMode";
+    import { darkMode } from "$lib/stores/darkMode";
     import { saveJournalEntry } from "$lib/stores/journal";
     import { onMount } from "svelte";
 
@@ -75,30 +75,17 @@
     });
 </script>
 
-<div
-    class="min-h-screen bg-gray-50 dark:bg-gray-900 font-serif p-2 sm:p-5 transition-colors duration-300"
->
+<div class="font-serif p-2 sm:p-5">
     <div
         class="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 transition-colors duration-300"
     >
-        <!-- Header with Dark Mode Toggle -->
-        <div class="flex justify-between items-center mb-8">
+        <!-- Header -->
+        <div class="mb-8">
             <h1
-                class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-gray-100 text-center border-b-2 border-blue-500 pb-3 flex-1"
+                class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-gray-100 text-center border-b-2 border-blue-500 pb-3"
             >
                 🌱 Diario Diario para Conocerte Mejor
             </h1>
-            <button
-                on:click={toggleDarkMode}
-                class="ml-4 p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200"
-                aria-label="Toggle dark mode"
-            >
-                {#if $darkMode}
-                    ☀️
-                {:else}
-                    🌙
-                {/if}
-            </button>
         </div>
 
         <!-- Date Section -->
