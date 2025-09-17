@@ -20,7 +20,7 @@ function createLanguageStore() {
         return 'es'; // Default to Spanish
     };
 
-    const { subscribe, set } = writable<Language>(getInitialLanguage());
+    const { subscribe, set, update } = writable<Language>(getInitialLanguage());
 
     return {
         subscribe,
@@ -31,14 +31,13 @@ function createLanguageStore() {
             set(lang);
         },
         toggle: () => {
-            subscribe((currentLang) => {
+            update((currentLang) => {
                 const newLang = currentLang === 'es' ? 'en' : 'es';
                 if (browser) {
                     localStorage.setItem('language', newLang);
                 }
-                set(newLang);
                 return newLang;
-            })();
+            });
         }
     };
 }
