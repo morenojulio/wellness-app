@@ -6,6 +6,9 @@ import {
   orderBy,
   onSnapshot,
   Timestamp,
+  updateDoc,
+  deleteDoc,
+  doc,
 } from "firebase/firestore";
 import { writable } from "svelte/store";
 import { db } from "$lib/firebase";
@@ -160,6 +163,37 @@ export async function getJournalEntries() {
       success: false,
       error: error instanceof Error ? error.message : String(error),
       entries: [],
+    };
+  }
+}
+
+export async function updateJournalEntry(
+  id: string,
+  data: Partial<Omit<JournalEntry, "timestamp">>,
+) {
+  try {
+    const ref = doc(db, "journal-entries", id);
+    await updateDoc(ref, data);
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating journal entry:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function deleteJournalEntry(id: string) {
+  try {
+    const ref = doc(db, "journal-entries", id);
+    await deleteDoc(ref);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting journal entry:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

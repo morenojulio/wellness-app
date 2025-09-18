@@ -38,6 +38,9 @@
 
     function startEntry() {
         screen = 'form';
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('journalScreen', 'form');
+        }
     }
 
     function resetEntry() {
@@ -51,6 +54,9 @@
         eveningAdmiration = '';
         saveMessage = '';
         screen = 'welcome';
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('journalScreen', 'welcome');
+        }
     }
 
     async function handleSave() {
@@ -77,6 +83,9 @@
             // Move to thanks screen shortly after save
             setTimeout(() => {
                 screen = 'thanks';
+                if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('journalScreen', 'thanks');
+                }
             }, 800);
         } else {
             saveMessage = $t('journal.save.error') + " " + result.error;
@@ -94,10 +103,24 @@
         if ($darkMode) {
             document.documentElement.classList.add("dark");
         }
+        const stored = typeof window !== 'undefined' ? sessionStorage.getItem('journalScreen') : null;
+        if (stored === 'form') {
+            screen = 'form';
+        } else if (stored === 'thanks') {
+            screen = 'thanks';
+        }
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', persistState);
+        }
     });
+
+    function persistState() {
+        if (typeof window === 'undefined') return;
+        sessionStorage.setItem('journalScreen', screen);
+    }
 </script>
 
-<div class="font-serif p-2 sm:p-5">
+<div class="p-2 sm:p-5">
     <div class="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 transition-colors duration-300">
         {#if screen === 'welcome'}
             <div class="space-y-8 text-center">

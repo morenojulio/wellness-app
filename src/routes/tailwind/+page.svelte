@@ -29,7 +29,7 @@
     }
 </script>
 
-<div class="min-h-screen bg-gray-50 font-serif p-2 sm:p-5">
+<div class="min-h-screen bg-gray-50 p-2 sm:p-5">
     <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6 sm:p-8">
         <!-- Header -->
         <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 text-center border-b-2 border-blue-500 pb-3 mb-8">
