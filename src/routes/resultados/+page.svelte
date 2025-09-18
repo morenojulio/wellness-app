@@ -1,13 +1,19 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { journalStore, updateJournalEntry, deleteJournalEntry } from "$lib/stores/journal";
+    import { authStore } from '$lib/stores/auth';
     import { language } from "$lib/stores/language";
     import { t } from "$lib/utils/i18n";
     import { formatDate } from "$lib/utils/i18n";
+    import { clickOutside } from '$lib/clickOutside';
+    import { menuA11y } from '$lib/menuA11y';
+    import Spinner from '$lib/components/Spinner.svelte';
 
     onMount(() => {
         journalStore.init();
     });
+
+    $: user = $authStore.user;
 
     // State
     let editingId: string | null = null;
@@ -18,18 +24,6 @@
     let showDeleteModal = false;
     let deleteEntryId: string | null = null;
 
-    // Simple click outside action for menus
-    function clickOutside(node: HTMLElement) {
-        const handleClick = (event: MouseEvent) => {
-            if (!node.contains(event.target as Node)) {
-                node.dispatchEvent(new CustomEvent('outclick'));
-            }
-        };
-        document.addEventListener('click', handleClick, true);
-        return {
-            destroy() { document.removeEventListener('click', handleClick, true); }
-        };
-    }
 
     function toggleMenu(id: string) {
         openMenuId = openMenuId === id ? null : id;
@@ -111,10 +105,15 @@
             </p>
         </div>
 
-        {#if $journalStore.isLoading}
+        {#if $authStore.loading}
+            <div class="py-16">
+                <Spinner size={40} label={$t('auth.loading') || 'Loading...'} />
+            </div>
+        {:else if !user}
+            <div class="py-16 text-center text-gray-600 dark:text-gray-300 text-sm">{$t('auth.loading') || 'Loading...'}</div>
+        {:else if $journalStore.isLoading}
             <div class="text-center py-12">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p class="mt-4 text-gray-600 dark:text-gray-300">{$t('results.loading')}</p>
+                <Spinner size={32} label={$t('results.loading')} />
             </div>
         {:else if $journalStore.error}
             <div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 px-4 py-3 rounded-lg">
@@ -182,46 +181,46 @@
                                     </div>
                                 </div>
 
-                                <!-- Kebab Menu -->
-                                <div class="relative ml-auto" use:clickOutside on:outclick={() => openMenuId === entry.id && (openMenuId = null)}>
-                                    <button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition text-gray-600 dark:text-gray-200" aria-label="menu" on:click={() => toggleMenu(entry.id)}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                                            <path d="M10 6a1.25 1.25 0 110-2.5A1.25 1.25 0 0110 6zm0 3.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm0 3.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z" />
-                                        </svg>
-                                    </button>
-                                    {#if openMenuId === entry.id}
-                                        <div class="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl ring-1 ring-black/5 dark:ring-white/10 z-20 py-1 text-sm text-gray-700 dark:text-gray-100">
-                                            {#if editingId === entry.id}
-                                                <button on:click={saveEdit} class="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 disabled:opacity-50" disabled={saving}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-green-600 dark:text-green-400">
-                                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clip-rule="evenodd" />
-                                                    </svg>
-                                                    {saving ? '...' : $t('results.entry.save')}
-                                                </button>
-                                                <button on:click={cancelEdit} class="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-gray-500 dark:text-gray-400">
-                                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                                    </svg>
-                                                    {$t('results.entry.cancel')}
-                                                </button>
-                                            {:else}
-                                                <button on:click={() => startEdit(entry)} class="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-blue-600 dark:text-blue-400">
-                                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793z" />
-                                                        <path fill-rule="evenodd" d="M11.379 5.793L4 13.172V16h2.828l7.379-7.379-2.828-2.828zM3 12.172L12.172 3l4.243 4.243a1 1 0 010 1.414l-8.586 8.586A1 1 0 017.172 18H3a1 1 0 01-1-1v-4.172a1 1 0 01.293-.707z" clip-rule="evenodd" />
-                                                    </svg>
-                                                    {$t('results.entry.edit')}
-                                                </button>
-                                                <button on:click={() => requestDelete(entry)} class="w-full flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-800/40 focus:outline-none focus:bg-red-50 dark:focus:bg-red-800/40 disabled:opacity-50" disabled={deletingId === entry.id}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                                    </svg>
-                                                    {deletingId === entry.id ? '...' : $t('results.entry.delete')}
-                                                </button>
-                                            {/if}
-                                        </div>
-                                    {/if}
-                                </div>
+                                 <!-- Kebab Menu (focus + a11y wrapper) -->
+                                 <div class="relative ml-auto" use:clickOutside on:outside={() => openMenuId === entry.id && (openMenuId = null)} use:menuA11y>
+                                     <button data-menu-trigger class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition text-gray-600 dark:text-gray-200" aria-haspopup="menu" aria-expanded={openMenuId === entry.id} aria-controls={`entry-menu-${entry.id}`} aria-label="entry menu" on:click={() => toggleMenu(entry.id)}>
+                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                                             <path d="M10 6a1.25 1.25 0 110-2.5A1.25 1.25 0 0110 6zm0 3.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm0 3.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z" />
+                                         </svg>
+                                     </button>
+                                     {#if openMenuId === entry.id}
+                                         <div id={`entry-menu-${entry.id}`} role="menu" class="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl ring-1 ring-black/5 dark:ring-white/10 z-20 py-1 text-sm text-gray-700 dark:text-gray-100">
+                                             {#if editingId === entry.id}
+                                                 <button tabindex="-1" role="menuitem" on:click={saveEdit} class="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 disabled:opacity-50" disabled={saving}>
+                                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-green-600 dark:text-green-400">
+                                                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clip-rule="evenodd" />
+                                                     </svg>
+                                                     {saving ? '...' : $t('results.entry.save')}
+                                                 </button>
+                                                 <button tabindex="-1" role="menuitem" on:click={cancelEdit} class="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800">
+                                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-gray-500 dark:text-gray-400">
+                                                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                                     </svg>
+                                                     {$t('results.entry.cancel')}
+                                                 </button>
+                                             {:else}
+                                                 <button tabindex="-1" role="menuitem" on:click={() => startEdit(entry)} class="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800">
+                                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-blue-600 dark:text-blue-400">
+                                                         <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793z" />
+                                                         <path fill-rule="evenodd" d="M11.379 5.793L4 13.172V16h2.828l7.379-7.379-2.828-2.828zM3 12.172L12.172 3l4.243 4.243a1 1 0 010 1.414l-8.586 8.586A1 1 0 017.172 18H3a1 1 0 01-1-1v-4.172a1 1 0 01.293-.707z" clip-rule="evenodd" />
+                                                     </svg>
+                                                     {$t('results.entry.edit')}
+                                                 </button>
+                                                 <button tabindex="-1" role="menuitem" on:click={() => requestDelete(entry)} class="w-full flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-800/40 focus:outline-none focus:bg-red-50 dark:focus:bg-red-800/40 disabled:opacity-50" disabled={deletingId === entry.id}>
+                                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                         <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                                     </svg>
+                                                     {deletingId === entry.id ? '...' : $t('results.entry.delete')}
+                                                 </button>
+                                             {/if}
+                                         </div>
+                                     {/if}
+                                 </div>
                             </div>
                         </div>
 

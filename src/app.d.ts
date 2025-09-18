@@ -8,6 +8,13 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	// Typed custom event for clickOutside action
+	namespace svelteHTML {
+		interface HTMLAttributes<T> {
+			'on:outside'?: (event: CustomEvent<any>) => void;
+		}
+	}
 }
 
 export {};

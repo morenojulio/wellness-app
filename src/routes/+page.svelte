@@ -5,6 +5,8 @@
     import { t } from "$lib/utils/i18n";
     import { formatDate } from "$lib/utils/i18n";
     import { onMount } from "svelte";
+    import { authStore } from '$lib/stores/auth';
+    import Spinner from '$lib/components/Spinner.svelte';
 
     $: currentDate = formatDate(new Date(), $language);
 
@@ -122,7 +124,13 @@
 
 <div class="p-2 sm:p-5">
     <div class="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 transition-colors duration-300">
-        {#if screen === 'welcome'}
+        {#if $authStore.loading}
+            <div class="py-16">
+                <Spinner size={40} label={$t('auth.loading') || 'Loading...'} />
+            </div>
+        {:else if !$authStore.user}
+            <div class="py-16 text-center text-gray-600 dark:text-gray-300 text-sm">{$t('auth.loading') || 'Loading...'}</div>
+        {:else if screen === 'welcome'}
             <div class="space-y-8 text-center">
                 <h1 class="text-3xl font-bold text-slate-800 dark:text-gray-100">{$t('journal.title')}</h1>
                 <p class="text-xl text-gray-700 dark:text-gray-300">{$t('journal.welcome.greeting')}, <span class="font-semibold">{userName}</span> 👋</p>

@@ -10,8 +10,9 @@ import {
   deleteDoc,
   doc,
 } from "firebase/firestore";
-import { writable } from "svelte/store";
+import { writable, get } from "svelte/store";
 import { db } from "$lib/firebase";
+import { authStore } from "$lib/stores/auth";
 
 export interface JournalEntry {
   date: string;
@@ -27,7 +28,7 @@ export interface JournalEntry {
   timestamp: Timestamp;
 }
 
-interface JournalStore {
+interface JournalStoreState {
   entries: Array<JournalEntry & { id: string }>;
   isLoading: boolean;
   error: string;
@@ -35,78 +36,108 @@ interface JournalStore {
 }
 
 function createJournalStore() {
-  const { subscribe, set, update } = writable<JournalStore>({
+  const { subscribe, update, set } = writable<JournalStoreState>({
     entries: [],
     isLoading: true,
     error: "",
     isInitialized: false,
   });
 
-  let unsubscribe: (() => void) | null = null;
+  let authUnsub: (() => void) | null = null;
+  let entriesUnsub: (() => void) | null = null;
+  let currentUid: string | null = null;
+  let started = false;
+
+  function attachListener(uid: string) {
+    if (entriesUnsub) {
+      entriesUnsub();
+      entriesUnsub = null;
+    }
+
+    update((s) => ({ ...s, isLoading: true, error: "" }));
+
+    const q = query(
+      collection(db, "users", uid, "journal-entries"),
+      orderBy("timestamp", "desc"),
+    );
+
+    entriesUnsub = onSnapshot(
+      q,
+      (snap) => {
+        const entries: Array<JournalEntry & { id: string }> = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          entries.push({
+            id: d.id,
+            date: data.date,
+            morningEnergy: data.morningEnergy,
+            afternoonEnergy: data.afternoonEnergy,
+            eveningEnergy: data.eveningEnergy,
+            morningFocus: data.morningFocus,
+            afternoonMoment: data.afternoonMoment,
+            eveningEmotion: data.eveningEmotion,
+            eveningAuthentic: data.eveningAuthentic,
+            eveningActing: data.eveningActing,
+            eveningAdmiration: data.eveningAdmiration,
+            timestamp: data.timestamp,
+          });
+        });
+        update((s) => ({
+          ...s,
+          entries,
+          isLoading: false,
+          error: "",
+          isInitialized: true,
+        }));
+      },
+      (error) => {
+        console.error("Error in journal entries listener:", error);
+        update((s) => ({
+          ...s,
+          isLoading: false,
+          error: error instanceof Error ? error.message : String(error),
+          isInitialized: true,
+        }));
+      },
+    );
+  }
 
   return {
     subscribe,
     init: () => {
-      if (unsubscribe) return; // Already initialized
+      if (started) return;
+      started = true;
 
-      const q = query(
-        collection(db, "journal-entries"),
-        orderBy("timestamp", "desc"),
-      );
+      authUnsub = authStore.subscribe((a) => {
+        const uid = a.user?.uid || null;
+        if (uid === currentUid) return;
 
-      unsubscribe = onSnapshot(
-        q,
-        (querySnapshot) => {
-          const entries: Array<JournalEntry & { id: string }> = [];
+        currentUid = uid;
 
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            entries.push({
-              id: doc.id,
-              date: data.date,
-              morningEnergy: data.morningEnergy,
-              afternoonEnergy: data.afternoonEnergy,
-              eveningEnergy: data.eveningEnergy,
-              morningFocus: data.morningFocus,
-              afternoonMoment: data.afternoonMoment,
-              eveningEmotion: data.eveningEmotion,
-              eveningAuthentic: data.eveningAuthentic,
-              eveningActing: data.eveningActing,
-              eveningAdmiration: data.eveningAdmiration,
-              timestamp: data.timestamp,
-            });
-          });
+        if (!uid) {
+          if (entriesUnsub) {
+            entriesUnsub();
+            entriesUnsub = null;
+          }
+          set({ entries: [], isLoading: false, error: "", isInitialized: true });
+          return;
+        }
 
-          update((store) => ({
-            ...store,
-            entries,
-            isLoading: false,
-            error: "",
-            isInitialized: true,
-          }));
-        },
-        (error) => {
-          console.error("Error in journal entries listener:", error);
-          update((store) => ({
-            ...store,
-            isLoading: false,
-            error: error instanceof Error ? error.message : String(error),
-            isInitialized: true,
-          }));
-        },
-      );
+        attachListener(uid);
+      });
     },
     destroy: () => {
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
+      if (entriesUnsub) {
+        entriesUnsub();
+        entriesUnsub = null;
       }
-      set({
-        entries: [],
-        isLoading: true,
-        error: "",
-        isInitialized: false,
-      });
+      if (authUnsub) {
+        authUnsub();
+        authUnsub = null;
+      }
+      currentUid = null;
+      started = false;
+      set({ entries: [], isLoading: true, error: "", isInitialized: false });
     },
   };
 }
@@ -114,11 +145,15 @@ function createJournalStore() {
 export const journalStore = createJournalStore();
 
 export async function saveJournalEntry(entry: Omit<JournalEntry, "timestamp">) {
+  const { user } = get(authStore) as any;
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
   try {
-    const docRef = await addDoc(collection(db, "journal-entries"), {
-      ...entry,
-      timestamp: Timestamp.now(),
-    });
+    const docRef = await addDoc(
+      collection(db, "users", user.uid, "journal-entries"),
+      { ...entry, timestamp: Timestamp.now() },
+    );
     return { success: true, id: docRef.id };
   } catch (error) {
     console.error("Error saving journal entry:", error);
@@ -130,18 +165,21 @@ export async function saveJournalEntry(entry: Omit<JournalEntry, "timestamp">) {
 }
 
 export async function getJournalEntries() {
+  const { user } = get(authStore) as any;
+  if (!user) {
+    return { success: false, error: "Not authenticated", entries: [] };
+  }
   try {
     const q = query(
-      collection(db, "journal-entries"),
+      collection(db, "users", user.uid, "journal-entries"),
       orderBy("timestamp", "desc"),
     );
-    const querySnapshot = await getDocs(q);
+    const snap = await getDocs(q);
     const entries: Array<JournalEntry & { id: string }> = [];
-
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
+    snap.forEach((d) => {
+      const data = d.data();
       entries.push({
-        id: doc.id,
+        id: d.id,
         date: data.date,
         morningEnergy: data.morningEnergy,
         afternoonEnergy: data.afternoonEnergy,
@@ -155,7 +193,6 @@ export async function getJournalEntries() {
         timestamp: data.timestamp,
       });
     });
-
     return { success: true, entries };
   } catch (error) {
     console.error("Error fetching journal entries:", error);
@@ -171,8 +208,12 @@ export async function updateJournalEntry(
   id: string,
   data: Partial<Omit<JournalEntry, "timestamp">>,
 ) {
+  const { user } = get(authStore) as any;
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
   try {
-    const ref = doc(db, "journal-entries", id);
+    const ref = doc(db, "users", user.uid, "journal-entries", id);
     await updateDoc(ref, data);
     return { success: true };
   } catch (error) {
@@ -185,8 +226,12 @@ export async function updateJournalEntry(
 }
 
 export async function deleteJournalEntry(id: string) {
+  const { user } = get(authStore) as any;
+  if (!user) {
+    return { success: false, error: "Not authenticated" };
+  }
   try {
-    const ref = doc(db, "journal-entries", id);
+    const ref = doc(db, "users", user.uid, "journal-entries", id);
     await deleteDoc(ref);
     return { success: true };
   } catch (error) {

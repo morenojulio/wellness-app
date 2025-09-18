@@ -85,7 +85,41 @@ export const translations = {
       },
     },
 
-    // Results page
+    // Auth
+    auth: {
+      heading: "Inicia sesión para continuar",
+      subheading: "Crea una cuenta o accede para guardar tu progreso.",
+      email: "Correo electrónico",
+      password: "Contraseña",
+      confirmPassword: "Confirmar contraseña",
+      signIn: "Iniciar sesión",
+      signUp: "Crear cuenta",
+      google: "Continuar con Google",
+      switchToSignUp: "¿No tienes cuenta? Crear cuenta",
+      switchToSignIn: "¿Ya tienes cuenta? Iniciar sesión",
+      signOut: "Cerrar sesión",
+      loading: "Cargando...",
+      alreadySignedIn: "Ya has iniciado sesión.",
+      goToApp: "Ir a la app",
+      errors: {
+        'auth/invalid-credential': 'Credenciales inválidas',
+        'auth/user-not-found': 'Usuario no encontrado',
+        'auth/wrong-password': 'Contraseña incorrecta',
+        'auth/email-already-in-use': 'El correo ya está en uso',
+        'auth/weak-password': 'La contraseña es muy débil',
+        'auth/invalid-email': 'Correo inválida',
+        'auth/too-many-requests': 'Demasiados intentos, intenta más tarde',
+        'auth/operation-not-allowed': 'Inicio con email/contraseña no habilitado',
+        'auth/network-request-failed': 'Error de red, verifica tu conexión',
+        'auth/invalid-api-key': 'Clave de API de Firebase inválida',
+        'auth/internal-error': 'Error interno de autenticación, intenta de nuevo',
+        'auth/missing-password': 'Falta la contraseña',
+        'password-mismatch': 'Las contraseñas no coinciden',
+        generic: 'Ocurrió un error. Intenta de nuevo.'
+      }
+    },
+ 
+     // Results page
     results: {
       title: "📊 Resultados del Diario",
       subtitle: "Revisa tus entradas pasadas y observa tus patrones",
@@ -196,6 +230,40 @@ export const translations = {
         message: "Thanks for today's entry! 🌟",
         back: "Back to start",
       },
+    },
+
+    // Auth
+    auth: {
+      heading: "Sign in to continue",
+      subheading: "Create an account or sign in to save your progress.",
+      email: "Email",
+      password: "Password",
+      confirmPassword: "Confirm password",
+      signIn: "Sign in",
+      signUp: "Sign up",
+      google: "Continue with Google",
+      switchToSignUp: "Don't have an account? Sign up",
+      switchToSignIn: "Already have an account? Sign in",
+      signOut: "Sign out",
+      loading: "Loading...",
+      alreadySignedIn: "You are already signed in.",
+      goToApp: "Go to App",
+      errors: {
+        'auth/invalid-credential': 'Invalid credentials',
+        'auth/user-not-found': 'User not found',
+        'auth/wrong-password': 'Incorrect password',
+        'auth/email-already-in-use': 'Email already in use',
+        'auth/weak-password': 'Password is too weak',
+        'auth/invalid-email': 'Invalid email',
+        'auth/too-many-requests': 'Too many attempts, try later',
+        'auth/operation-not-allowed': 'Email/password sign-in not enabled',
+        'auth/network-request-failed': 'Network error, check your connection',
+        'auth/invalid-api-key': 'Invalid Firebase API key',
+        'auth/internal-error': 'Internal auth error, try again',
+        'auth/missing-password': 'Password is required',
+        'password-mismatch': 'Passwords do not match',
+        generic: 'An error occurred. Please try again.'
+      }
     },
 
     // Results page
