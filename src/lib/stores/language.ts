@@ -20,7 +20,15 @@ function createLanguageStore() {
         return 'es'; // Default to Spanish
     };
 
-    const { subscribe, set, update } = writable<Language>(getInitialLanguage());
+    const store = writable<Language>(getInitialLanguage());
+    const { subscribe, set, update } = store;
+
+    if (browser) {
+        // Keep <html lang="..."> in sync
+        subscribe((lang) => {
+            document.documentElement.setAttribute('lang', lang);
+        });
+    }
 
     return {
         subscribe,

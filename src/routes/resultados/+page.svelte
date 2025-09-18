@@ -9,8 +9,9 @@
     import { menuA11y } from '$lib/menuA11y';
     import Spinner from '$lib/components/Spinner.svelte';
 
+    // Journal store now initialized globally in +layout.svelte
     onMount(() => {
-        journalStore.init();
+        // Additional per-page setup could go here
     });
 
     $: user = $authStore.user;

@@ -67,12 +67,14 @@ export const translations = {
       },
 
       // Save section
-      save: {
-        button: "Guardar Entrada del Diario",
-        saving: "Guardando...",
-        success: "✅ Entrada guardada exitosamente",
-        error: "❌ Error al guardar:",
-      },
+       save: {
+         button: "Guardar Entrada del Diario",
+         saving: "Guardando...",
+         success: "✅ Entrada guardada exitosamente",
+         error: "❌ Error al guardar:",
+         cancel: "Cancelar Entrada",
+         confirmCancel: "¿Descartar esta entrada? Todos los cambios no guardados se perderán",
+       },
 
       welcome: {
         greeting: "Hola",
@@ -213,13 +215,15 @@ export const translations = {
         placeholder: "Write here...",
       },
 
-      // Save section
-      save: {
-        button: "Save Journal Entry",
-        saving: "Saving...",
-        success: "✅ Entry saved successfully",
-        error: "❌ Error saving:",
-      },
+       // Save section
+        save: {
+         button: "Save Journal Entry",
+         saving: "Saving...",
+         success: "✅ Entry saved successfully",
+         error: "❌ Error saving:",
+         cancel: "Cancel Entry",
+         confirmCancel: "Discard this entry? All unsaved changes will be lost",
+        },
 
       welcome: {
         greeting: "Hi",

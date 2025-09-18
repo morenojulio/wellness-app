@@ -23,8 +23,42 @@
     let eveningActing = "";
     let eveningAdmiration = "";
 
+    // Energy button color classes (index 0 => value 1, ... index 9 => value 10)
+    const selectedColorClasses: string[] = [
+        'bg-red-700 text-white border-red-700',      // 1
+        'bg-red-600 text-white border-red-600',      // 2
+        'bg-red-500 text-white border-red-500',      // 3
+        'bg-orange-600 text-white border-orange-600',// 4
+        'bg-orange-500 text-white border-orange-500',// 5
+        'bg-orange-400 text-gray-900 border-orange-400', // 6
+        'bg-orange-300 text-gray-900 border-orange-300', // 7
+        'bg-orange-200 text-gray-900 border-orange-200', // 8
+        'bg-orange-100 text-gray-900 border-orange-200', // 9
+        'bg-green-600 text-white border-green-600'   // 10
+    ];
+
+    const hoverColorClasses: string[] = [
+        'hover:bg-red-700 hover:text-white hover:border-red-700',      // 1
+        'hover:bg-red-600 hover:text-white hover:border-red-600',      // 2
+        'hover:bg-red-500 hover:text-white hover:border-red-500',      // 3
+        'hover:bg-orange-600 hover:text-white hover:border-orange-600',// 4
+        'hover:bg-orange-500 hover:text-white hover:border-orange-500',// 5
+        'hover:bg-orange-400 hover:text-gray-900 hover:border-orange-400', // 6
+        'hover:bg-orange-300 hover:text-gray-900 hover:border-orange-300', // 7
+        'hover:bg-orange-200 hover:text-gray-900 hover:border-orange-200', // 8
+        'hover:bg-orange-100 hover:text-gray-900 hover:border-orange-200', // 9
+        'hover:bg-green-600 hover:text-white hover:border-green-600'   // 10
+    ];
+
+    function energyButtonClass(currentValue: number, index: number) {
+        const base = 'w-8 h-8 sm:w-10 sm:h-10 border-2 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200';
+        const unselected = 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-500';
+        return `${base} ${hoverColorClasses[index]} ${currentValue === index + 1 ? selectedColorClasses[index] : unselected}`;
+    }
+
     let isSaving = false;
     let saveMessage = "";
+    let showCancelModal = false;
 
     function selectEnergy(
         period: "morning" | "afternoon" | "evening",
@@ -182,7 +216,7 @@
                         </div>
                         <div class="flex justify-between gap-1 sm:gap-2">
                             {#each Array(10) as _, i}
-                                <button class="w-8 h-8 sm:w-10 sm:h-10 border-2 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 {morningEnergy === i + 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-500'}" on:click={() => selectEnergy('morning', i + 1)}>{i + 1}</button>
+                                <button class="{energyButtonClass(morningEnergy, i)}" on:click={() => selectEnergy('morning', i + 1)}>{i + 1}</button>
                             {/each}
                         </div>
                     </div>
@@ -207,7 +241,7 @@
                         </div>
                         <div class="flex justify-between gap-1 sm:gap-2">
                             {#each Array(10) as _, i}
-                                <button class="w-8 h-8 sm:w-10 sm:h-10 border-2 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 {afternoonEnergy === i + 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-500'}" on:click={() => selectEnergy('afternoon', i + 1)}>{i + 1}</button>
+                                <button class="{energyButtonClass(afternoonEnergy, i)}" on:click={() => selectEnergy('afternoon', i + 1)}>{i + 1}</button>
                             {/each}
                         </div>
                     </div>
@@ -232,7 +266,7 @@
                         </div>
                         <div class="flex justify-between gap-1 sm:gap-2">
                             {#each Array(10) as _, i}
-                                <button class="w-8 h-8 sm:w-10 sm:h-10 border-2 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 {eveningEnergy === i + 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-500'}" on:click={() => selectEnergy('evening', i + 1)}>{i + 1}</button>
+                                <button class="{energyButtonClass(eveningEnergy, i)}" on:click={() => selectEnergy('evening', i + 1)}>{i + 1}</button>
                             {/each}
                         </div>
                     </div>
@@ -259,19 +293,43 @@
                 </div>
             </div>
 
-            <!-- Save Button -->
-            <div class="mt-8 text-center">
-                <button on:click={handleSave} disabled={isSaving} class="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg shadow-md transition-all duration-200 disabled:cursor-not-allowed">
+            <!-- Save / Cancel Buttons -->
+            <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button on:click={handleSave} disabled={isSaving} class="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg shadow-md transition-all duration-200 disabled:cursor-not-allowed min-w-[220px] order-1">
                     {#if isSaving}
                         {$t('journal.save.saving')}
                     {:else}
                         {$t('journal.save.button')}
                     {/if}
                 </button>
+                <button type="button" on:click={() => {
+                        const hasData = morningEnergy || afternoonEnergy || eveningEnergy || morningFocus || afternoonMoment || eveningEmotion || eveningAuthentic || eveningActing || eveningAdmiration;
+                        if (!hasData) {
+                            resetEntry();
+                        } else {
+                            showCancelModal = true;
+                        }
+                    }} class="px-8 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-lg shadow-md transition-all duration-200 min-w-[220px] order-2">
+                    {$t('journal.save.cancel')}
+                </button>
                 {#if saveMessage}
-                    <div class="mt-3 text-sm font-medium {saveMessage.includes('✅') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">{saveMessage}</div>
+                    <div class="w-full text-center sm:w-auto mt-1 text-sm font-medium {saveMessage.includes('✅') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">{saveMessage}</div>
                 {/if}
             </div>
+
+            {#if showCancelModal}
+                <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" on:click={() => showCancelModal = false}></div>
+                    <div class="relative z-50 w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-5 border border-gray-200 dark:border-gray-700">
+                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{$t('journal.save.cancel')}</h2>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{$t('journal.save.confirmCancel')}</p>
+                        <div class="flex flex-col sm:flex-row gap-3 justify-end">
+                            <button type="button" class="px-5 py-2 rounded-md font-medium bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors" on:click={() => showCancelModal = false}>{$t('results.entry.cancel')}</button>
+                            <button type="button" class="px-5 py-2 rounded-md font-semibold bg-red-600 hover:bg-red-700 text-white shadow transition-colors" on:click={() => { resetEntry(); showCancelModal = false; }}>{$t('journal.save.cancel')}</button>
+                        </div>
+                    </div>
+                </div>
+            {/if}
         {/if}
     </div>
 </div>
