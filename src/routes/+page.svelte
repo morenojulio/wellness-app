@@ -1,10 +1,10 @@
 <script lang="ts">
     import { darkMode } from "$lib/stores/darkMode";
-    import { saveJournalEntry } from "$lib/stores/journal";
+    import { saveJournalEntry, updateJournalEntry, journalStore } from "$lib/stores/journal";
     import { language } from "$lib/stores/language";
     import { t } from "$lib/utils/i18n";
     import { formatDate } from "$lib/utils/i18n";
-    import { onMount } from "svelte";
+    import { onMount, onDestroy } from "svelte";
     import { authStore } from '$lib/stores/auth';
     import Spinner from '$lib/components/Spinner.svelte';
 
@@ -69,36 +69,112 @@
         if (period === "evening") eveningEnergy = value;
     }
 
-    let screen: 'welcome' | 'form' | 'thanks' = 'welcome';
+    // Screen state: welcome -> period (single section) -> thanks
+    let screen: 'welcome' | 'period' | 'thanks' = 'welcome';
+    let currentPeriod: 'morning' | 'afternoon' | 'evening' | null = null;
     const userName = 'Julien';
 
-    function startEntry() {
-        screen = 'form';
-        if (typeof window !== 'undefined') {
-            sessionStorage.setItem('journalScreen', 'form');
+    import { timeSettings } from '$lib/stores/timeSettings';
+    // Dynamic unlock times: each period unlocks at user-configured time and remains available afterwards (no sequential dependency)
+    let now = new Date();
+    let timer: any;
+
+    function parseHM(hm: string) {
+        const [h,m] = hm.split(':').map(Number);
+        return { h: h ?? 0, m: m ?? 0 };
+    }
+
+    function unlockDateFor(period: 'morning' | 'afternoon' | 'evening') {
+        const settings = $timeSettings.settings;
+        const map = {
+            morning: settings.morningUnlock,
+            afternoon: settings.afternoonUnlock,
+            evening: settings.eveningUnlock,
+        } as const;
+        const { h, m } = parseHM(map[period]);
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        return d;
+    }
+
+    function formatUnlock(period: 'morning' | 'afternoon' | 'evening') {
+        const d = unlockDateFor(period);
+        const h = d.getHours().toString().padStart(2,'0');
+        const m = d.getMinutes().toString().padStart(2,'0');
+        return `${h}:${m}`;
+    }
+
+    function isUnlocked(period: 'morning' | 'afternoon' | 'evening') {
+        return now >= unlockDateFor(period);
+    }
+
+    function canAccessPeriod(period: 'morning' | 'afternoon' | 'evening') {
+        return isUnlocked(period);
+    }
+
+    onMount(() => {
+        timer = setInterval(() => { now = new Date(); }, 30000); // refresh every 30s
+    });
+
+    onDestroy(() => { if (timer) clearInterval(timer); });
+
+    // cleanup
+    if (typeof window !== 'undefined') {
+        addEventListener('beforeunload', () => { if (timer) clearInterval(timer); });
+    }
+
+    // Derive today's entry if already saved (to allow incremental updates)
+    import { journalStore as _js } from '$lib/stores/journal'; // alias already imported above but ensures reactive $journalStore
+    $: todaysEntry = $journalStore.entries.find(e => e.date === currentDate);
+
+    function loadTodayValues() {
+        if (todaysEntry) {
+            morningEnergy = todaysEntry.morningEnergy || 0;
+            afternoonEnergy = todaysEntry.afternoonEnergy || 0;
+            eveningEnergy = todaysEntry.eveningEnergy || 0;
+            morningFocus = todaysEntry.morningFocus || '';
+            afternoonMoment = todaysEntry.afternoonMoment || '';
+            eveningEmotion = todaysEntry.eveningEmotion || '';
+            eveningAuthentic = todaysEntry.eveningAuthentic || '';
+            eveningActing = todaysEntry.eveningActing || '';
+            eveningAdmiration = todaysEntry.eveningAdmiration || '';
         }
     }
 
-    function resetEntry() {
-        // Clear form fields
-        morningEnergy = afternoonEnergy = eveningEnergy = 0;
-        morningFocus = '';
-        afternoonMoment = '';
-        eveningEmotion = '';
-        eveningAuthentic = '';
-        eveningActing = '';
-        eveningAdmiration = '';
-        saveMessage = '';
+    // Completion heuristics per period
+    $: morningDone = (morningEnergy > 0 || morningFocus.trim().length > 0) && !!todaysEntry?.morningEnergy;
+    $: afternoonDone = (afternoonEnergy > 0 || afternoonMoment.trim().length > 0) && !!todaysEntry?.afternoonEnergy;
+    $: eveningDone = (eveningEnergy > 0 || eveningEmotion.trim().length > 0 || eveningAuthentic.trim().length > 0 || eveningActing.trim().length > 0 || eveningAdmiration.trim().length > 0) && !!todaysEntry?.eveningEnergy;
+
+    function openPeriod(period: 'morning' | 'afternoon' | 'evening') {
+        if (!canAccessPeriod(period)) return; // guard
+        currentPeriod = period;
+        screen = 'period';
+        loadTodayValues();
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('journalScreen', `period:${period}`);
+        }
+    }
+
+    function backToWelcome() {
         screen = 'welcome';
+        currentPeriod = null;
         if (typeof window !== 'undefined') {
             sessionStorage.setItem('journalScreen', 'welcome');
         }
     }
 
+    function resetAllState() {
+        morningEnergy = afternoonEnergy = eveningEnergy = 0;
+        morningFocus = afternoonMoment = eveningEmotion = eveningAuthentic = eveningActing = eveningAdmiration = '';
+    }
+
     async function handleSave() {
+        if (!currentPeriod) return;
         isSaving = true;
         saveMessage = "";
 
+        // Build full entry object snapshot
         const entry = {
             date: currentDate,
             morningEnergy,
@@ -112,15 +188,36 @@
             eveningAdmiration,
         };
 
-        const result = await saveJournalEntry(entry);
+        let result;
+        if (todaysEntry) {
+            // Partial update only for changed period to reduce unnecessary writes
+            const partial: any = {};
+            if (currentPeriod === 'morning') {
+                partial.morningEnergy = morningEnergy;
+                partial.morningFocus = morningFocus;
+            } else if (currentPeriod === 'afternoon') {
+                partial.afternoonEnergy = afternoonEnergy;
+                partial.afternoonMoment = afternoonMoment;
+            } else if (currentPeriod === 'evening') {
+                partial.eveningEnergy = eveningEnergy;
+                partial.eveningEmotion = eveningEmotion;
+                partial.eveningAuthentic = eveningAuthentic;
+                partial.eveningActing = eveningActing;
+                partial.eveningAdmiration = eveningAdmiration;
+            }
+            result = await updateJournalEntry(todaysEntry.id, partial);
+        } else {
+            result = await saveJournalEntry(entry);
+        }
 
         if (result.success) {
             saveMessage = $t('journal.save.success');
-            // Move to thanks screen shortly after save
             setTimeout(() => {
-                screen = 'thanks';
+                // After saving one period, return to welcome so user sees remaining locks
+                screen = 'welcome';
+                currentPeriod = null;
                 if (typeof window !== 'undefined') {
-                    sessionStorage.setItem('journalScreen', 'thanks');
+                    sessionStorage.setItem('journalScreen', 'welcome');
                 }
             }, 800);
         } else {
@@ -134,16 +231,23 @@
         }, 3000);
     }
 
-    // Initialize dark mode on mount
+    // Initialize dark mode + restore session
     onMount(() => {
         if ($darkMode) {
             document.documentElement.classList.add("dark");
         }
         const stored = typeof window !== 'undefined' ? sessionStorage.getItem('journalScreen') : null;
-        if (stored === 'form') {
-            screen = 'form';
-        } else if (stored === 'thanks') {
-            screen = 'thanks';
+        if (stored) {
+            if (stored === 'welcome') {
+                screen = 'welcome';
+            } else if (stored.startsWith('period:')) {
+                const p = stored.split(':')[1] as any;
+                if (['morning','afternoon','evening'].includes(p) && canAccessPeriod(p)) {
+                    openPeriod(p);
+                } else {
+                    screen = 'welcome';
+                }
+            }
         }
         if (typeof window !== 'undefined') {
             window.addEventListener('beforeunload', persistState);
@@ -152,7 +256,11 @@
 
     function persistState() {
         if (typeof window === 'undefined') return;
-        sessionStorage.setItem('journalScreen', screen);
+        if (screen === 'period' && currentPeriod) {
+            sessionStorage.setItem('journalScreen', `period:${currentPeriod}`);
+        } else {
+            sessionStorage.setItem('journalScreen', screen);
+        }
     }
 </script>
 
@@ -172,23 +280,66 @@
                 <div class="text-lg text-gray-600 dark:text-gray-300 font-medium">
                     <strong>{$t('journal.date')}</strong> {currentDate}
                 </div>
-                <button on:click={startEntry} class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-200">{$t('journal.welcome.start')}</button>
+
+                <div class="grid gap-5 sm:grid-cols-3 text-left">
+                    <!-- Morning Card -->
+                    <button type="button"
+                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed border-orange-400 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20 hover:shadow-md"
+                        disabled={!canAccessPeriod('morning') || morningDone}
+                        on:click={() => openPeriod('morning')}>
+                        <span class="text-sm uppercase tracking-wide font-semibold text-orange-600 dark:text-orange-400">{$t('journal.morning.title')}</span>
+                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400">{canAccessPeriod('morning') ? (morningDone ? $t('journal.save.success') : $t('journal.welcome.start')) : `${$t('settings.openAt')} ${formatUnlock('morning')}`}</span>
+                        {#if morningDone}
+                            <span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-xs font-semibold">✓</span>
+                        {/if}
+                        {#if !canAccessPeriod('morning') && !morningDone}
+                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">{$t('settings.openAt')} {formatUnlock('morning')}</span>
+                        {/if}
+                    </button>
+
+                    <!-- Afternoon Card -->
+                    <button type="button"
+                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/20 hover:shadow-md"
+                        disabled={!canAccessPeriod('afternoon') || afternoonDone}
+                        on:click={() => openPeriod('afternoon')}>
+                        <span class="text-sm uppercase tracking-wide font-semibold text-red-600 dark:text-red-400">{$t('journal.afternoon.title')}</span>
+                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400">{canAccessPeriod('afternoon') ? (afternoonDone ? $t('journal.save.success') : $t('journal.welcome.start')) : `${$t('settings.openAt')} ${formatUnlock('afternoon')}`}</span>
+                        {#if afternoonDone}
+                            <span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-xs font-semibold">✓</span>
+                        {/if}
+                        {#if !canAccessPeriod('afternoon') && !afternoonDone}
+                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">{$t('settings.openAt')} {formatUnlock('afternoon')}</span>
+                        {/if}
+                    </button>
+
+                    <!-- Evening Card -->
+                    <button type="button"
+                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/20 hover:shadow-md"
+                        disabled={!canAccessPeriod('evening') || eveningDone}
+                        on:click={() => openPeriod('evening')}>
+                        <span class="text-sm uppercase tracking-wide font-semibold text-purple-600 dark:text-purple-400">{$t('journal.evening.title')}</span>
+                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400">{canAccessPeriod('evening') ? (eveningDone ? $t('journal.save.success') : $t('journal.welcome.start')) : `${$t('settings.openAt')} ${formatUnlock('evening')}`}</span>
+                        {#if eveningDone}
+                            <span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-xs font-semibold">✓</span>
+                        {/if}
+                        {#if !canAccessPeriod('evening') && !eveningDone}
+                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">{$t('settings.openAt')} {formatUnlock('evening')}</span>
+                        {/if}
+                    </button>
+                </div>
             </div>
         {:else if screen === 'thanks'}
             <div class="space-y-8 text-center">
                 <h1 class="text-3xl font-bold text-slate-800 dark:text-gray-100">{$t('journal.title')}</h1>
                 <p class="text-2xl text-gray-800 dark:text-gray-200">{$t('journal.thanks.message')}</p>
-                <button on:click={resetEntry} class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-200">{$t('journal.thanks.back')}</button>
+                <button on:click={backToWelcome} class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-200">{$t('journal.thanks.back')}</button>
             </div>
         {:else}
-            <!-- FORM SCREEN -->
+            <!-- PERIOD FORM SCREEN -->
             <!-- Header -->
-            <div class="mb-8">
-                <h1
-                    class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-gray-100 text-center border-b-2 border-blue-500 pb-3"
-                >
-                    {$t('journal.title')}
-                </h1>
+            <div class="mb-8 flex items-center justify-between">
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-gray-100 text-center flex-1">{$t('journal.title')}</h1>
+                <button type="button" class="ml-4 px-4 py-2 text-sm rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200" on:click={backToWelcome}>← {$t('journal.save.cancel')}</button>
             </div>
 
             <!-- Date Section -->
@@ -197,101 +348,107 @@
                 {currentDate}
             </div>
 
-            <!-- MORNING SECTION -->
-            <div class="border-2 border-gray-200 dark:border-gray-600 border-l-orange-500 border-l-8 rounded-lg p-5 mb-8">
-                <div class="text-xl font-bold text-orange-500 mb-4">
-                    {$t('journal.morning.title')}
-                </div>
-                <div class="mb-6">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
-                        {$t('journal.morning.energyQuestion')}
+            {#if currentPeriod === 'morning'}
+                <!-- MORNING SECTION -->
+                <div class="border-2 border-gray-200 dark:border-gray-600 border-l-orange-500 border-l-8 rounded-lg p-5 mb-8">
+                    <div class="text-xl font-bold text-orange-500 mb-4">
+                        {$t('journal.morning.title')}
                     </div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">
-                        {$t('journal.morning.energyScale')}
-                    </div>
-                    <div class="space-y-3">
-                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <span>{$t('journal.morning.lowEnergy')}</span>
-                            <span>{$t('journal.morning.highEnergy')}</span>
+                    <div class="mb-6">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">
+                            {$t('journal.morning.energyQuestion')}
                         </div>
-                        <div class="flex justify-between gap-1 sm:gap-2">
-                            {#each Array(10) as _, i}
-                                <button class="{energyButtonClass(morningEnergy, i)}" on:click={() => selectEnergy('morning', i + 1)}>{i + 1}</button>
-                            {/each}
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">
+                            {$t('journal.morning.energyScale')}
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <span>{$t('journal.morning.lowEnergy')}</span>
+                                <span>{$t('journal.morning.highEnergy')}</span>
+                            </div>
+                            <div class="flex justify-between gap-1 sm:gap-2">
+                                {#each Array(10) as _, i}
+                                    <button class={energyButtonClass(morningEnergy, i)} on:click={() => selectEnergy('morning', i + 1)}>{i + 1}</button>
+                                {/each}
+                            </div>
                         </div>
                     </div>
+                    <div class="mb-4">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.morning.focusQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.morning.focusHint')}</div>
+                        <textarea class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={morningFocus} placeholder={$t('journal.morning.placeholder')}></textarea>
+                    </div>
                 </div>
-                <div class="mb-4">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.morning.focusQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.morning.focusHint')}</div>
-                    <textarea class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={morningFocus} placeholder={$t('journal.morning.placeholder')}></textarea>
-                </div>
-            </div>
+            {/if}
 
-            <!-- AFTERNOON SECTION -->
-            <div class="border-2 border-gray-200 dark:border-gray-600 border-l-red-500 border-l-8 rounded-lg p-5 mb-8">
-                <div class="text-xl font-bold text-red-500 mb-4">{$t('journal.afternoon.title')}</div>
-                <div class="mb-6">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.afternoon.energyQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.afternoon.energyScale')}</div>
-                    <div class="space-y-3">
-                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <span>{$t('journal.afternoon.lowEnergy')}</span>
-                            <span>{$t('journal.afternoon.highEnergy')}</span>
-                        </div>
-                        <div class="flex justify-between gap-1 sm:gap-2">
-                            {#each Array(10) as _, i}
-                                <button class="{energyButtonClass(afternoonEnergy, i)}" on:click={() => selectEnergy('afternoon', i + 1)}>{i + 1}</button>
-                            {/each}
+            {#if currentPeriod === 'afternoon'}
+                <!-- AFTERNOON SECTION -->
+                <div class="border-2 border-gray-200 dark:border-gray-600 border-l-red-500 border-l-8 rounded-lg p-5 mb-8">
+                    <div class="text-xl font-bold text-red-500 mb-4">{$t('journal.afternoon.title')}</div>
+                    <div class="mb-6">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.afternoon.energyQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.afternoon.energyScale')}</div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <span>{$t('journal.afternoon.lowEnergy')}</span>
+                                <span>{$t('journal.afternoon.highEnergy')}</span>
+                            </div>
+                            <div class="flex justify-between gap-1 sm:gap-2">
+                                {#each Array(10) as _, i}
+                                    <button class={energyButtonClass(afternoonEnergy, i)} on:click={() => selectEnergy('afternoon', i + 1)}>{i + 1}</button>
+                                {/each}
+                            </div>
                         </div>
                     </div>
+                    <div class="mb-4">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.afternoon.momentQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.afternoon.momentHint')}</div>
+                        <textarea class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={afternoonMoment} placeholder={$t('journal.afternoon.placeholder')}></textarea>
+                    </div>
                 </div>
-                <div class="mb-4">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.afternoon.momentQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.afternoon.momentHint')}</div>
-                    <textarea class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={afternoonMoment} placeholder={$t('journal.afternoon.placeholder')}></textarea>
-                </div>
-            </div>
+            {/if}
 
-            <!-- EVENING SECTION -->
-            <div class="border-2 border-gray-200 dark:border-gray-600 border-l-purple-500 border-l-8 rounded-lg p-5 mb-8">
-                <div class="text-xl font-bold text-purple-500 mb-4">{$t('journal.evening.title')}</div>
-                <div class="mb-6">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.energyQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.energyScale')}</div>
-                    <div class="space-y-3">
-                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <span>{$t('journal.evening.lowEnergy')}</span>
-                            <span>{$t('journal.evening.highEnergy')}</span>
-                        </div>
-                        <div class="flex justify-between gap-1 sm:gap-2">
-                            {#each Array(10) as _, i}
-                                <button class="{energyButtonClass(eveningEnergy, i)}" on:click={() => selectEnergy('evening', i + 1)}>{i + 1}</button>
-                            {/each}
+            {#if currentPeriod === 'evening'}
+                <!-- EVENING SECTION -->
+                <div class="border-2 border-gray-200 dark:border-gray-600 border-l-purple-500 border-l-8 rounded-lg p-5 mb-8">
+                    <div class="text-xl font-bold text-purple-500 mb-4">{$t('journal.evening.title')}</div>
+                    <div class="mb-6">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.energyQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.energyScale')}</div>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <span>{$t('journal.evening.lowEnergy')}</span>
+                                <span>{$t('journal.evening.highEnergy')}</span>
+                            </div>
+                            <div class="flex justify-between gap-1 sm:gap-2">
+                                {#each Array(10) as _, i}
+                                    <button class={energyButtonClass(eveningEnergy, i)} on:click={() => selectEnergy('evening', i + 1)}>{i + 1}</button>
+                                {/each}
+                            </div>
                         </div>
                     </div>
+                    <div class="mb-6">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.emotionQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.emotionHint')}</div>
+                        <textarea class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningEmotion} placeholder={$t('journal.evening.placeholder')}></textarea>
+                    </div>
+                    <div class="mb-6">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.authenticQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.authenticHint')}</div>
+                        <textarea class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningAuthentic} placeholder={$t('journal.evening.placeholder')}></textarea>
+                    </div>
+                    <div class="mb-6">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.actingQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.actingHint')}</div>
+                        <textarea class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningActing} placeholder={$t('journal.evening.placeholder')}></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.admirationQuestion')}</div>
+                        <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.admirationHint')}</div>
+                        <textarea class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningAdmiration} placeholder={$t('journal.evening.placeholder')}></textarea>
+                    </div>
                 </div>
-                <div class="mb-6">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.emotionQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.emotionHint')}</div>
-                    <textarea class="w-full min-h-[80px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningEmotion} placeholder={$t('journal.evening.placeholder')}></textarea>
-                </div>
-                <div class="mb-6">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.authenticQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.authenticHint')}</div>
-                    <textarea class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningAuthentic} placeholder={$t('journal.evening.placeholder')}></textarea>
-                </div>
-                <div class="mb-6">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.actingQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.actingHint')}</div>
-                    <textarea class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningActing} placeholder={$t('journal.evening.placeholder')}></textarea>
-                </div>
-                <div class="mb-4">
-                    <div class="font-bold text-slate-700 dark:text-gray-200 mb-2">{$t('journal.evening.admirationQuestion')}</div>
-                    <div class="text-gray-600 dark:text-gray-400 italic text-sm mb-3">{$t('journal.evening.admirationHint')}</div>
-                    <textarea class="w-full min-h-[100px] border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y" bind:value={eveningAdmiration} placeholder={$t('journal.evening.placeholder')}></textarea>
-                </div>
-            </div>
+            {/if}
 
             <!-- Save / Cancel Buttons -->
             <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -305,7 +462,7 @@
                 <button type="button" on:click={() => {
                         const hasData = morningEnergy || afternoonEnergy || eveningEnergy || morningFocus || afternoonMoment || eveningEmotion || eveningAuthentic || eveningActing || eveningAdmiration;
                         if (!hasData) {
-                            resetEntry();
+                            backToWelcome();
                         } else {
                             showCancelModal = true;
                         }
@@ -325,7 +482,7 @@
                         <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{$t('journal.save.confirmCancel')}</p>
                         <div class="flex flex-col sm:flex-row gap-3 justify-end">
                             <button type="button" class="px-5 py-2 rounded-md font-medium bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 transition-colors" on:click={() => showCancelModal = false}>{$t('results.entry.cancel')}</button>
-                            <button type="button" class="px-5 py-2 rounded-md font-semibold bg-red-600 hover:bg-red-700 text-white shadow transition-colors" on:click={() => { resetEntry(); showCancelModal = false; }}>{$t('journal.save.cancel')}</button>
+                            <button type="button" class="px-5 py-2 rounded-md font-semibold bg-red-600 hover:bg-red-700 text-white shadow transition-colors" on:click={() => { backToWelcome(); showCancelModal = false; }}>{$t('journal.save.cancel')}</button>
                         </div>
                     </div>
                 </div>

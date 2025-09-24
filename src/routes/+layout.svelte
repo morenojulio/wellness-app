@@ -4,6 +4,7 @@
     import "../app.css";
     import { onMount } from "svelte";
     import { journalStore } from "$lib/stores/journal";
+    import { timeSettings } from '$lib/stores/timeSettings';
     import { page } from '$app/stores';
 
     // Defer journal data init until user authenticated (only once per session)
@@ -12,6 +13,7 @@
         const unsub = authStore.subscribe((a) => {
             if (a.user) {
                 journalStore.init();
+                timeSettings.init();
                 unsub();
             }
         });

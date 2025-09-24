@@ -51,15 +51,24 @@
                             {$t("nav.journal")}
                         </a>
                         <a
-                            href="/resultados"
-                            class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath ===
-                            '/resultados'
-                                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
-                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
-                        >
-                            {$t("nav.results")}
-                        </a>
-                    </div>
+                             href="/resultados"
+                             class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath ===
+                             '/resultados'
+                                 ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
+                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
+                         >
+                             {$t("nav.results")}
+                         </a>
+                         <a
+                             href="/settings"
+                             class="px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 {currentPath ===
+                             '/settings'
+                                 ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200'
+                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
+                         >
+                             {$t("nav.settings")}
+                         </a>
+                     </div>
                 {/if}
             </div>
 
@@ -142,6 +151,13 @@
                         class="block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {currentPath === '/resultados' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
                     >
                         {$t("nav.results")}
+                    </a>
+                    <a
+                        href="/settings"
+                        on:click={closeMenu}
+                        class="block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 {currentPath === '/settings' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}"
+                    >
+                        {$t("nav.settings")}
                     </a>
                     <button
                         on:click={() => { authStore.signOut(); closeMenu(); }}
