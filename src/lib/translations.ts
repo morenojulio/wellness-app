@@ -75,9 +75,11 @@ export const translations = {
          error: "❌ Error al guardar:",
          cancel: "Cancelar Entrada",
          confirmCancel: "¿Descartar esta entrada? Todos los cambios no guardados se perderán",
-       },
-
-      welcome: {
+      },
+      completed: "Completed",
+      edit: "Edit",
+ 
+       welcome: {
         greeting: "Hola",
         intro: "¿Listo para tu entrada de hoy?",
         start: "Comenzar",
@@ -246,9 +248,11 @@ export const translations = {
          error: "❌ Error saving:",
          cancel: "Cancel Entry",
          confirmCancel: "Discard this entry? All unsaved changes will be lost",
-        },
-
-      welcome: {
+      },
+      completed: "Completado",
+      edit: "Editar",
+ 
+       welcome: {
         greeting: "Hi",
         intro: "Ready for today's entry?",
         start: "Start",

@@ -99,9 +99,39 @@
 
     function formatUnlock(period: 'morning' | 'afternoon' | 'evening') {
         const d = unlockDateFor(period);
-        const h = d.getHours().toString().padStart(2,'0');
         const m = d.getMinutes().toString().padStart(2,'0');
-        return `${h}:${m}`;
+        if ($language === 'es') { // 24-hour style for Spanish
+            const h24 = d.getHours().toString().padStart(2,'0');
+            return `${h24}:${m}`;
+        } else { // 12-hour with AM/PM for English (default)
+            let h = d.getHours();
+            const suffix = h >= 12 ? 'PM' : 'AM';
+            h = h % 12;
+            if (h === 0) h = 12;
+            return `${h}:${m} ${suffix}`;
+        }
+    }
+
+    function minutesUntil(period: 'morning' | 'afternoon' | 'evening') {
+        if (isUnlocked(period)) return 0;
+        const diffMs = unlockDateFor(period).getTime() - now.getTime();
+        return Math.max(0, Math.ceil(diffMs / 60000));
+    }
+
+    function remainingMinutesLabel(period: 'morning' | 'afternoon' | 'evening') {
+        const mins = minutesUntil(period);
+        if (mins <= 0) return '';
+        if (mins >= 60) {
+            const hours = Math.floor(mins / 60);
+            if ($language === 'es') {
+                return hours === 1 ? 'Abre en 1 h' : `Abre en ${hours} h`;
+            }
+            return hours === 1 ? 'Opens in 1h' : `Opens in ${hours}h`;
+        }
+        if ($language === 'es') {
+            return mins === 1 ? 'Abre en 1 min' : `Abre en ${mins} min`;
+        }
+        return mins === 1 ? 'Opens in 1 min' : `Opens in ${mins} min`;
     }
 
     function isUnlocked(period: 'morning' | 'afternoon' | 'evening') {
@@ -142,9 +172,15 @@
     }
 
     // Completion heuristics per period
-    $: morningDone = (morningEnergy > 0 || morningFocus.trim().length > 0) && !!todaysEntry?.morningEnergy;
-    $: afternoonDone = (afternoonEnergy > 0 || afternoonMoment.trim().length > 0) && !!todaysEntry?.afternoonEnergy;
-    $: eveningDone = (eveningEnergy > 0 || eveningEmotion.trim().length > 0 || eveningAuthentic.trim().length > 0 || eveningActing.trim().length > 0 || eveningAdmiration.trim().length > 0) && !!todaysEntry?.eveningEnergy;
+    $: morningDone = !!todaysEntry && (todaysEntry.morningEnergy > 0 || (todaysEntry.morningFocus?.trim().length ?? 0) > 0);
+    $: afternoonDone = !!todaysEntry && (todaysEntry.afternoonEnergy > 0 || (todaysEntry.afternoonMoment?.trim().length ?? 0) > 0);
+    $: eveningDone = !!todaysEntry && (
+        todaysEntry.eveningEnergy > 0 ||
+        (todaysEntry.eveningEmotion?.trim().length ?? 0) > 0 ||
+        (todaysEntry.eveningAuthentic?.trim().length ?? 0) > 0 ||
+        (todaysEntry.eveningActing?.trim().length ?? 0) > 0 ||
+        (todaysEntry.eveningAdmiration?.trim().length ?? 0) > 0
+    );
 
     function openPeriod(period: 'morning' | 'afternoon' | 'evening') {
         if (!canAccessPeriod(period)) return; // guard
@@ -273,6 +309,18 @@
         {:else if !$authStore.user}
             <div class="py-16 text-center text-gray-600 dark:text-gray-300 text-sm">{$t('auth.loading') || 'Loading...'}</div>
         {:else if screen === 'welcome'}
+            {#if $journalStore.isLoading}
+                <!-- Skeleton shimmer while loading entries -->
+                <div class="animate-pulse space-y-6">
+                    <div class="h-8 w-2/3 mx-auto bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div class="h-4 w-1/2 mx-auto bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div class="grid gap-5 sm:grid-cols-3">
+                        {#each Array(3) as _}
+                            <div class="relative border-2 rounded-xl p-5 h-32 bg-gray-100 dark:bg-gray-700/40 border-gray-200 dark:border-gray-600"></div>
+                        {/each}
+                    </div>
+                </div>
+            {:else}
             <div class="space-y-8 text-center">
                 <h1 class="text-3xl font-bold text-slate-800 dark:text-gray-100">{$t('journal.title')}</h1>
                 <p class="text-xl text-gray-700 dark:text-gray-300">{$t('journal.welcome.greeting')}, <span class="font-semibold">{userName}</span> 👋</p>
@@ -283,51 +331,106 @@
 
                 <div class="grid gap-5 sm:grid-cols-3 text-left">
                     <!-- Morning Card -->
-                    <button type="button"
-                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed border-orange-400 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20 hover:shadow-md"
-                        disabled={!canAccessPeriod('morning') || morningDone}
-                        on:click={() => openPeriod('morning')}>
+                    <div
+                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none border-orange-400 dark:border-orange-500 bg-orange-50 dark:bg-orange-900/20 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                        role="button"
+                        tabindex={canAccessPeriod('morning') && !morningDone ? 0 : -1}
+                        aria-disabled={!canAccessPeriod('morning')}
+                        on:click={() => { if(canAccessPeriod('morning') && !morningDone) openPeriod('morning'); }}
+                        on:keydown={(e) => { if(e.key==='Enter' || e.key===' ') { e.preventDefault(); if(canAccessPeriod('morning') && !morningDone) openPeriod('morning'); } }}
+                        title={(!canAccessPeriod('morning') && !morningDone) ? (remainingMinutesLabel('morning') || `${$t('settings.openAt')} ${formatUnlock('morning')}`) : ''}>
                         <span class="text-sm uppercase tracking-wide font-semibold text-orange-600 dark:text-orange-400">{$t('journal.morning.title')}</span>
-                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400">{canAccessPeriod('morning') ? (morningDone ? $t('journal.save.success') : $t('journal.welcome.start')) : `${$t('settings.openAt')} ${formatUnlock('morning')}`}</span>
+                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">{#if canAccessPeriod('morning')}
+                                {#if morningDone}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 text-[10px] font-semibold uppercase tracking-wide">{$t('journal.completed')}</span>
+                                    <button type="button" class="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 hover:underline" on:click={() => openPeriod('morning')}>{$t('journal.edit')}</button>
+                                {:else}
+                                    {$t('journal.welcome.start')}
+                                {/if}
+                            {:else}
+                                {`${$t('settings.openAt')} ${formatUnlock('morning')}`}
+                            {/if}</span>
                         {#if morningDone}
                             <span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-xs font-semibold">✓</span>
                         {/if}
-                        {#if !canAccessPeriod('morning') && !morningDone}
-                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">{$t('settings.openAt')} {formatUnlock('morning')}</span>
+                        {#if !canAccessPeriod('morning')}
+                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center text-[10px] sm:text-xs font-medium text-gray-600 dark:text-gray-300" title={remainingMinutesLabel('morning')} aria-label={remainingMinutesLabel('morning')}>
+                                <span>{$t('settings.openAt')} {formatUnlock('morning')}</span>
+                                {#if minutesUntil('morning') > 0}
+                                    <span class="mt-0.5 opacity-80">({remainingMinutesLabel('morning')})</span>
+                                {/if}
+                            </span>
                         {/if}
-                    </button>
+                    </div>
 
                     <!-- Afternoon Card -->
-                    <button type="button"
-                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/20 hover:shadow-md"
-                        disabled={!canAccessPeriod('afternoon') || afternoonDone}
-                        on:click={() => openPeriod('afternoon')}>
+                    <div
+                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/20 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                        role="button"
+                        tabindex={canAccessPeriod('afternoon') && !afternoonDone ? 0 : -1}
+                        aria-disabled={!canAccessPeriod('afternoon')}
+                        on:click={() => { if(canAccessPeriod('afternoon') && !afternoonDone) openPeriod('afternoon'); }}
+                        on:keydown={(e) => { if(e.key==='Enter' || e.key===' ') { e.preventDefault(); if(canAccessPeriod('afternoon') && !afternoonDone) openPeriod('afternoon'); } }}
+                        title={(!canAccessPeriod('afternoon') && !afternoonDone) ? (remainingMinutesLabel('afternoon') || `${$t('settings.openAt')} ${formatUnlock('afternoon')}`) : ''}>
                         <span class="text-sm uppercase tracking-wide font-semibold text-red-600 dark:text-red-400">{$t('journal.afternoon.title')}</span>
-                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400">{canAccessPeriod('afternoon') ? (afternoonDone ? $t('journal.save.success') : $t('journal.welcome.start')) : `${$t('settings.openAt')} ${formatUnlock('afternoon')}`}</span>
+                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">{#if canAccessPeriod('afternoon')}
+                                {#if afternoonDone}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 text-[10px] font-semibold uppercase tracking-wide">{$t('journal.completed')}</span>
+                                    <button type="button" class="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 hover:underline" on:click={() => openPeriod('afternoon')}>{$t('journal.edit')}</button>
+                                {:else}
+                                    {$t('journal.welcome.start')}
+                                {/if}
+                            {:else}
+                                {`${$t('settings.openAt')} ${formatUnlock('afternoon')}`}
+                            {/if}</span>
                         {#if afternoonDone}
                             <span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-xs font-semibold">✓</span>
                         {/if}
-                        {#if !canAccessPeriod('afternoon') && !afternoonDone}
-                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">{$t('settings.openAt')} {formatUnlock('afternoon')}</span>
+                        {#if !canAccessPeriod('afternoon')}
+                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center text-[10px] sm:text-xs font-medium text-gray-600 dark:text-gray-300" title={remainingMinutesLabel('afternoon')} aria-label={remainingMinutesLabel('afternoon')}>
+                                <span>{$t('settings.openAt')} {formatUnlock('afternoon')}</span>
+                                {#if minutesUntil('afternoon') > 0}
+                                    <span class="mt-0.5 opacity-80">({remainingMinutesLabel('afternoon')})</span>
+                                {/if}
+                            </span>
                         {/if}
-                    </button>
+                    </div>
 
                     <!-- Evening Card -->
-                    <button type="button"
-                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/20 hover:shadow-md"
-                        disabled={!canAccessPeriod('evening') || eveningDone}
-                        on:click={() => openPeriod('evening')}>
+                    <div
+                        class="group relative border-2 rounded-xl p-5 flex flex-col items-start text-left transition-all duration-200 focus:outline-none border-purple-400 dark:border-purple-500 bg-purple-50 dark:bg-purple-900/20 hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                        role="button"
+                        tabindex={canAccessPeriod('evening') && !eveningDone ? 0 : -1}
+                        aria-disabled={!canAccessPeriod('evening')}
+                        on:click={() => { if(canAccessPeriod('evening') && !eveningDone) openPeriod('evening'); }}
+                        on:keydown={(e) => { if(e.key==='Enter' || e.key===' ') { e.preventDefault(); if(canAccessPeriod('evening') && !eveningDone) openPeriod('evening'); } }}
+                        title={(!canAccessPeriod('evening') && !eveningDone) ? (remainingMinutesLabel('evening') || `${$t('settings.openAt')} ${formatUnlock('evening')}`) : ''}>
                         <span class="text-sm uppercase tracking-wide font-semibold text-purple-600 dark:text-purple-400">{$t('journal.evening.title')}</span>
-                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400">{canAccessPeriod('evening') ? (eveningDone ? $t('journal.save.success') : $t('journal.welcome.start')) : `${$t('settings.openAt')} ${formatUnlock('evening')}`}</span>
+                        <span class="mt-2 text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">{#if canAccessPeriod('evening')}
+                                {#if eveningDone}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 text-[10px] font-semibold uppercase tracking-wide">{$t('journal.completed')}</span>
+                                    <button type="button" class="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 hover:underline" on:click={() => openPeriod('evening')}>{$t('journal.edit')}</button>
+                                {:else}
+                                    {$t('journal.welcome.start')}
+                                {/if}
+                            {:else}
+                                {`${$t('settings.openAt')} ${formatUnlock('evening')}`}
+                            {/if}</span>
                         {#if eveningDone}
                             <span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-xs font-semibold">✓</span>
                         {/if}
-                        {#if !canAccessPeriod('evening') && !eveningDone}
-                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-xs font-medium text-gray-600 dark:text-gray-300">{$t('settings.openAt')} {formatUnlock('evening')}</span>
+                        {#if !canAccessPeriod('evening')}
+                            <span class="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center text-[10px] sm:text-xs font-medium text-gray-600 dark:text-gray-300" title={remainingMinutesLabel('evening')} aria-label={remainingMinutesLabel('evening')}>
+                                <span>{$t('settings.openAt')} {formatUnlock('evening')}</span>
+                                {#if minutesUntil('evening') > 0}
+                                    <span class="mt-0.5 opacity-80">({remainingMinutesLabel('evening')})</span>
+                                {/if}
+                            </span>
                         {/if}
-                    </button>
+                    </div>
                 </div>
-            </div>
+                </div>
+            {/if}
         {:else if screen === 'thanks'}
             <div class="space-y-8 text-center">
                 <h1 class="text-3xl font-bold text-slate-800 dark:text-gray-100">{$t('journal.title')}</h1>
@@ -476,7 +579,7 @@
 
             {#if showCancelModal}
                 <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
-                    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" on:click={() => showCancelModal = false}></div>
+                    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" role="button" tabindex="0" aria-label={$t('journal.save.cancel')} on:click={() => showCancelModal = false} on:keydown={(e)=>{ if(e.key==='Escape'|| e.key==='Enter' || e.key===' ') { e.preventDefault(); showCancelModal=false; } }}></div>
                     <div class="relative z-50 w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 space-y-5 border border-gray-200 dark:border-gray-700">
                         <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{$t('journal.save.cancel')}</h2>
                         <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{$t('journal.save.confirmCancel')}</p>

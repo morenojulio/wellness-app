@@ -106,18 +106,20 @@
 
                 {#if $authStore.user}
                     <!-- Email dropdown trigger (now always visible) -->
-                    <div class="relative" use:clickOutside on:outside={() => openEmailMenu = false} on:keydown={(e) => { if(e.key==='Escape') openEmailMenu=false; }}>
+                    <div class="relative" use:clickOutside on:outside={() => openEmailMenu = false} role="group" aria-label="User menu">
                         <button
                           class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium max-w-[180px] whitespace-nowrap"
                           on:click={() => openEmailMenu = !openEmailMenu}
+                          on:keydown={(e) => { if (e.key === 'Escape') { openEmailMenu = false; e.stopPropagation(); } }}
                           aria-haspopup="true"
                           aria-expanded={openEmailMenu}
+                          aria-controls="user-menu-panel"
                         >
                           <span class="truncate">{$authStore.user.email}</span>
                           <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.08 1.04l-4.25 4.25a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                         </button>
                         {#if openEmailMenu}
-                          <div class="absolute right-0 mt-2 w-44 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg py-1 z-20">
+                          <div id="user-menu-panel" class="absolute right-0 mt-2 w-44 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg py-1 z-20">
                             <button
                               class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                               on:click={() => { authStore.signOut(); openEmailMenu=false; }}
