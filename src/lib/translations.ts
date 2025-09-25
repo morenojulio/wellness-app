@@ -5,6 +5,7 @@ export const translations = {
       title: "🌱 Diario Wellness",
       journal: "Diario",
       results: "Resultados",
+      settings: "Configuración",
     },
 
     // Main journal page
@@ -74,9 +75,11 @@ export const translations = {
          error: "❌ Error al guardar:",
          cancel: "Cancelar Entrada",
          confirmCancel: "¿Descartar esta entrada? Todos los cambios no guardados se perderán",
-       },
-
-      welcome: {
+      },
+      completed: "Completed",
+      edit: "Edit",
+ 
+       welcome: {
         greeting: "Hola",
         intro: "¿Listo para tu entrada de hoy?",
         start: "Comenzar",
@@ -86,6 +89,25 @@ export const translations = {
         back: "Volver al inicio",
       },
     },
+
+    // Settings page
+    settings: {
+      title: "⏰ Horarios de Desbloqueo",
+      subtitle: "Configura a qué hora se abre cada período del diario",
+      morning: "Mañana",
+      afternoon: "Tarde",
+      evening: "Noche",
+      morningLabel: "Desbloqueo Mañana",
+      afternoonLabel: "Desbloqueo Tarde",
+      eveningLabel: "Desbloqueo Noche",
+      save: "Guardar Configuración",
+      saving: "Guardando...",
+      saved: "✅ Guardado",
+      error: "❌ Error al guardar",
+      openAt: "Abre a las",
+    },
+ 
+    // (removed misplaced English settings block that duplicated key)
 
     // Auth
     auth: {
@@ -121,7 +143,9 @@ export const translations = {
       }
     },
  
-     // Results page
+
+
+    // Results page
     results: {
       title: "📊 Resultados del Diario",
       subtitle: "Revisa tus entradas pasadas y observa tus patrones",
@@ -155,6 +179,7 @@ export const translations = {
       title: "🌱 Wellness Journal",
       journal: "Journal",
       results: "Results",
+      settings: "Settings",
     },
 
     // Main journal page
@@ -223,9 +248,11 @@ export const translations = {
          error: "❌ Error saving:",
          cancel: "Cancel Entry",
          confirmCancel: "Discard this entry? All unsaved changes will be lost",
-        },
-
-      welcome: {
+      },
+      completed: "Completado",
+      edit: "Editar",
+ 
+       welcome: {
         greeting: "Hi",
         intro: "Ready for today's entry?",
         start: "Start",
@@ -234,6 +261,23 @@ export const translations = {
         message: "Thanks for today's entry! 🌟",
         back: "Back to start",
       },
+    },
+ 
+    // Settings page
+    settings: {
+      title: "⏰ Unlock Times",
+      subtitle: "Set what time each journal period opens",
+      morning: "Morning",
+      afternoon: "Afternoon",
+      evening: "Evening",
+      morningLabel: "Morning Unlock",
+      afternoonLabel: "Afternoon Unlock",
+      eveningLabel: "Evening Unlock",
+      save: "Save Settings",
+      saving: "Saving...",
+      saved: "✅ Saved",
+      error: "❌ Error saving",
+      openAt: "Opens at",
     },
 
     // Auth

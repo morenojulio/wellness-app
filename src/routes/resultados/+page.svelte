@@ -346,7 +346,7 @@
 
     {#if showDeleteModal}
         <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" on:click={cancelDelete}></div>
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" role="button" tabindex="0" aria-label={$t('results.entry.cancel')} on:click={cancelDelete} on:keydown={(e)=>{ if(e.key==='Escape'|| e.key==='Enter' || e.key===' ') { e.preventDefault(); cancelDelete(); } }}></div>
             <div class="relative z-50 w-full max-w-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-6 space-y-5">
                 <div class="flex items-start gap-3">
                     <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
